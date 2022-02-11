@@ -11,26 +11,66 @@ library(httr)
 library(here)
 library(tidyverse)
 
-# Pathway to the OCC file on the server to save
-gold_path <- "//PICGOLDFISH/GENERAL/Oceanography/CNMI_OCC_SST/"
 
-# Read in the sites file, we will need this for the lat, long, and site name
-site_locations <- readxl::read_xlsx("occ_sites/CNMI-OCC-sites.xlsx") %>%
-  filter(STATUS == "Active")
+# Do some data checks first and check if any site IDs are listed twice
 
-# Some data checks
-## 1. are any site IDs listed twice? There should be 101
+## Read in the sites file, we will need this for the lat, long, and site name
+site_locations <- readxl::read_xlsx("occ_sites/OCC_LIST_OF_SITES.xlsx") %>%
+  filter(STATUS == "Inactive",
+         REGION == "PRIA")
 
-length(unique(site_locations$OCC_SITEID)) ## there are 100. SAI-017 is listed twice, but with different lats/log and depths. Since this is a one off download script I'm going to skip it in the looped script and then go and download it manually for the two coordinates after. However if this becomes something that we do again I will need to come up with streamlined and reproducable approach to this.
+## 1. Total number of sites in each region and status
+    ## Active CNMI - 101 total
+    ## Active AMSM - 78 total
+    ## Active MHI - 42 total
+    ## Active NWHI - 41 total
+    ## Active PRIA - 97 total
 
-# Create a vector with all the sites we are interested in
+    ## Inactive CNMI - 57 total
+    ## Inactive AMSM - 68 total
+    ## Inactive MHI - 95 total
+    ## Inactive NWHI - 117 total
+    ## Inactive PRIA - 109 total
+
+length(unique(site_locations$OCC_SITEID))
+
+## 2. Actual unique sites :
+
+      ## Active CNMI - 100 unique, SAI-017 is repeated twice
+      ## Active AMSM - 78 unique
+      ## Active MHI - 42 unique
+      ## Active NWHI - 41 unique
+      ## Active PRIA - 97 unique
+
+      ## Inactive CNMI - 57 unique
+      ## Inactive AMSM - 68 unique
+      ## Inactive MHI - 95 unique
+      ## Inactive NWHI - 117 unique
+      ## Inactive PRIA - 109 unique
+
+### Active CNMI: there are 100 unique sites. SAI-017 is listed twice, but with different lats/log and depths. Since this is a one off download script I'm going to skip it in the looped script and then go and download it manually for the two coordinates after.
+
+
+##### ------ ####
+
+
+# Create function to get the data we need
+
+get_sst <- function(status, region) {
+
+  # Pathway to the OCC file on the server to save
+  gold_path <- paste("//PICGOLDFISH/GENERAL/Oceanography/OCC_SST_data/", status, "/", region, "/", sep = "")
+
+  site_locations <- readxl::read_xlsx("occ_sites/OCC_LIST_OF_SITES.xlsx") %>%
+    filter(STATUS == status,
+           REGION == region)
+
+## Create a vector with all the sites we are interested in
 site_list <- c(site_locations$OCC_SITEID)
-
-## didn't finish and computer went to sleep at site SAI-016. will start at this site and do over in case it didn't finish all the way and then finish the rest.
-site_list <- site_list[93:101]
 
 
 for(s in site_list) {
+
 
   ## skip SAI-017 because there are two sets of coordinates associated with it; downloaded     manually after loop
   if(s == "OCC-SAI-017") next
@@ -41,14 +81,18 @@ for(s in site_list) {
   lon <- filtered_row$LONGITUDE
   lat <- filtered_row$LATITUDE
 
-  ## url for the data
-  url_link <- httr::GET(paste("https://oceanwatch.pifsc.noaa.gov/erddap/griddap/CRW_sst_v3_1.csv?analysed_sst%5B(1985-01-01T12:00:00Z):(2021-12-31T12:00:00Z)%5D%5B(", lat, ")%5D%5B(", lon, ")%5D&.draw=lines&.vars=time%7Canalysed_sst%7C&.color=0x000000&.bgColor=0xffffffff", sep = ""))
+  ## The data from ERDDAP is in 0 to 360 longitude, but our coordinates are -180 to 180 so we need to convert it when the longitude is negative
+  lon <- ifelse(lon <0, lon + 360, lon)
 
-  ## get csv data from the url
+
+  ## url for the data
+  url_link <- httr::GET(paste("https://oceanwatch.pifsc.noaa.gov/erddap/griddap/CRW_sst_v3_1.csv?analysed_sst%5B(1985-01-01T12:00:00Z):(2022-02-07T12:00:00Z)%5D%5B(", lat, ")%5D%5B(", lon, ")%5D&.draw=lines&.vars=time%7Canalysed_sst%7C&.color=0x000000&.bgColor=0xffffffff", sep = ""))
+
+  ## get csv data from the url")
   bin <- content(url_link, "raw")
   writeBin(bin, "sst.csv")
   sst <- read_csv("sst.csv")
-  sst <- sst[-1,] ## there's some extra unnecessary info in the first line under the header    we can just get rid of
+  sst <- sst[-1,] ## there's some extra unnecessary info in the first line under the header we can just get rid of
   sst <- sst %>%
     mutate(OCC_SITEID = s)
 
@@ -56,7 +100,7 @@ for(s in site_list) {
   write_csv(sst, paste(gold_path, "SST-", s, ".csv", sep = ""))
 
 
-  ## We want to check and make sure that there aren't a bunch of NAs. If that is the case      that means that we are on/near land (some of the points are close to shore so they might     accidentally land there in the 5 km). We want to document which ones these are so we can     change the centroid
+  ## We want to check and make sure that there aren't a bunch of NAs. If that is the case that means that we are on/near land (some of the points are close to shore so they might accidentally land there in the 5 km). We want to document which ones these are so we can change the centroid
 
   na_counts_file <- read_csv("occ_sites/sst_na_counts_location.csv") %>%
    mutate(LATITUDE = as.numeric(LATITUDE),
@@ -68,16 +112,38 @@ for(s in site_list) {
                  OCC_SITEID = s,
                   LATITUDE = lat,
                   LONGITUDE = lon,
+                  REGION = region,
+                  STATUS = status,
                   NA_COUNT = count_na)
 
 ## save it and overwrite old file
   write_csv(na_counts_file, "occ_sites/sst_na_counts_location.csv")
 
 
-}
+}}
 
 
-# Grabbing the data associated with the duplicate site
+
+# Run the function for each region and status combination
+
+## Active
+# get_sst(status= "Active", region = "CNMI") # downloaded 1/21
+# get_sst(status= "Active", region = "AMSM") # downloaded 2/10
+get_sst(status= "Active", region = "MHI")
+get_sst(status= "Active", region = "NWHI")
+get_sst(status= "Active", region = "PRIA")
+
+## Inactive
+get_sst(status= "Inactive", region = "CNMI")
+get_sst(status= "Inactive", region = "AMSM")
+get_sst(status= "Inactive", region = "MHI")
+get_sst(status= "Inactive", region = "NWHI")
+get_sst(status= "Inactive", region = "PRIA")
+
+
+
+
+# Grabbing the data associated with the duplicate site OCC-SAI-017 an Active CNMI site
 
 ## Need to grab the two coordinate rows associated with OCC-SAI-017. The following is just a repeat of the code in the loop above, but specifying the site, and lat/longs. The first set of coordinates associated with SAI-017 will be called lon_1/lat_1 and the second lon_2/lat_2.
 
