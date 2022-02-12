@@ -90,8 +90,8 @@ for(s in site_list) {
 
   ## get csv data from the url")
   bin <- content(url_link, "raw")
-  writeBin(bin, "sst.csv")
-  sst <- read_csv("sst.csv")
+  writeBin(bin, "temp/sst.csv")
+  sst <- read_csv("temp/sst.csv")
   sst <- sst[-1,] ## there's some extra unnecessary info in the first line under the header we can just get rid of
   sst <- sst %>%
     mutate(OCC_SITEID = s)

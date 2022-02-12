@@ -1,4 +1,13 @@
+
+## Autopopulated
+
 .Rproj.user
 .Rhistory
 .RData
 .Ruserdata
+
+## temporary file for when ERDDAP downloads. Sometimes it's too big to push to github so we want to make sure we don't do that
+
+sst.csv
+
+
