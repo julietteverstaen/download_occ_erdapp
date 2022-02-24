@@ -68,7 +68,6 @@ get_sst <- function(status, region) {
 ## Create a vector with all the sites we are interested in
 site_list <- c(site_locations$OCC_SITEID)
 
-
 for(s in site_list) {
 
 
@@ -103,22 +102,21 @@ for(s in site_list) {
   ## We want to check and make sure that there aren't a bunch of NAs. If that is the case that means that we are on/near land (some of the points are close to shore so they might accidentally land there in the 5 km). We want to document which ones these are so we can change the centroid
 
   na_counts_file <- read_csv("occ_sites/sst_na_counts_location.csv") %>%
-   mutate(LATITUDE = as.numeric(LATITUDE),
-          LONGITUDE = as.numeric(LONGITUDE),
-          NA_COUNT = as.numeric(NA_COUNT))
+    mutate(LATITUDE = as.numeric(LATITUDE),
+           LONGITUDE = as.numeric(LONGITUDE),
+           NA_COUNT = as.numeric(NA_COUNT))
 
   count_na <- sum(is.na(sst$analysed_sst))
   na_counts_file <- tibble::add_row(na_counts_file,
-                 OCC_SITEID = s,
-                  LATITUDE = lat,
-                  LONGITUDE = lon,
-                  REGION = region,
-                  STATUS = status,
-                  NA_COUNT = count_na)
+                                    OCC_SITEID = s,
+                                    LATITUDE = lat,
+                                    LONGITUDE = lon,
+                                    REGION = region,
+                                    STATUS = status,
+                                    NA_COUNT = count_na)
 
-## save it and overwrite old file
+  ## save it and overwrite old file
   write_csv(na_counts_file, "occ_sites/sst_na_counts_location.csv")
-
 
 }}
 
@@ -127,18 +125,18 @@ for(s in site_list) {
 # Run the function for each region and status combination
 
 ## Active
-# get_sst(status= "Active", region = "CNMI") # downloaded 1/21
-# get_sst(status= "Active", region = "AMSM") # downloaded 2/10
-get_sst(status= "Active", region = "MHI")
-get_sst(status= "Active", region = "NWHI")
-get_sst(status= "Active", region = "PRIA")
+# get_sst(status= "Active", region = "CNMI") # downloaded 1/21/22
+# get_sst(status= "Active", region = "AMSM") # downloaded 2/10/22
+# get_sst(status= "Active", region = "MHI") # downloaded 2/11/22
+# get_sst(status= "Active", region = "NWHI") # downloaded 2/12/22
+# get_sst(status= "Active", region = "PRIA") # downloaded 2/12/22
 
 ## Inactive
-get_sst(status= "Inactive", region = "CNMI")
-get_sst(status= "Inactive", region = "AMSM")
-get_sst(status= "Inactive", region = "MHI")
-get_sst(status= "Inactive", region = "NWHI")
-get_sst(status= "Inactive", region = "PRIA")
+# get_sst(status= "Inactive", region = "CNMI") ## finished downloading 2/22/22
+# get_sst(status= "Inactive", region = "AMSM") ## downloaded 2/12/22
+# get_sst(status= "Inactive", region = "MHI") ## finished downloading 2/22/22
+# get_sst(status= "Inactive", region = "NWHI") ## downloaded 2/19/22
+# get_sst(status= "Inactive", region = "PRIA") ## finished downloading 2/23/22
 
 
 ##### ----- #####
